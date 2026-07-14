@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Owner or anyone the owner has explicitly invited (by email, resolved
+    // client-side to a uid) as a manager of that shul.
+    function isShulManager(shulId) {
+      let shul = get(/databases/$(database)/documents/shuls/$(shulId)).data;
+      return request.auth != null &&
+        (shul.ownerId == request.auth.uid || (request.auth.uid in shul.get('managers', [])));
+    }
+
+    // A manager/owner may update ONLY their own notifyPrefs.{uid} entry on a
+    // shul they don't own, without needing full shul-edit rights — every
+    // other top-level field, and every other admin's notifyPrefs entry, must
+    // stay untouched.
+    function isSelfNotifyPrefsUpdate(shulId) {
+      let shul = get(/databases/$(database)/documents/shuls/$(shulId)).data;
+      return request.auth != null &&
+        (shul.ownerId == request.auth.uid || (request.auth.uid in shul.get('managers', []))) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['notifyPrefs']) &&
+        request.resource.data.notifyPrefs.diff(resource.data.get('notifyPrefs', {})).affectedKeys().hasOnly([request.auth.uid]);
+    }
+
+    match /users/{uid} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    match /shuls/{shulId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.ownerId == request.auth.uid;
+      // The owner can edit anything (shul info, the managers list). A
+      // manager who isn't the owner can only write their own notifyPrefs entry.
+      allow update: if
+        (request.auth != null && resource.data.ownerId == request.auth.uid) ||
+        isSelfNotifyPrefsUpdate(shulId);
+      allow delete: if request.auth != null && resource.data.ownerId == request.auth.uid;
+    }
+
+    match /minyanim/{minyanId} {
+      allow read: if true;
+      allow create: if isShulManager(request.resource.data.shulId);
+      allow update, delete: if isShulManager(resource.data.shulId);
+    }
+
+    match /rsvps/{rsvpId} {
+      // Anyone can read RSVPs for a minyan that has count or names turned on
+      // publicly; otherwise only that shul's owner/managers can read them.
+      // `resource` is null for a get() on a not-yet-created doc (e.g. an
+      // existence check before creating), so that case must short-circuit
+      // before dereferencing resource.data — otherwise every such read errors
+      // out as denied.
+      allow read: if
+        resource == null ||
+        get(/databases/$(database)/documents/minyanim/$(resource.data.minyanId)).data.showCount == true ||
+        get(/databases/$(database)/documents/minyanim/$(resource.data.minyanId)).data.showNames == true ||
+        isShulManager(resource.data.shulId);
+      // Logged-in users can only write RSVPs under their own uid. Shuls that
+      // allow guest RSVPs accept anonymous writes with uid == null instead;
+      // there's no server-verifiable owner for those, so anyone can remove a
+      // guest RSVP (acceptable for a simple headcount, not sensitive data).
+      allow create: if
+        (request.auth != null && request.resource.data.uid == request.auth.uid && request.resource.data.guestId == null) ||
+        (request.auth == null && request.resource.data.uid == null && request.resource.data.guestId is string);
+      allow delete: if
+        (request.auth != null && resource.data.uid == request.auth.uid) ||
+        (request.auth == null && resource.data.uid == null) ||
+        isShulManager(resource.data.shulId);
+      allow update: if false;
+    }
+  }
+}
