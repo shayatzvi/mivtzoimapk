@@ -181,12 +181,17 @@ function friendlyAuthError(err) {
 // ---- Home (public) view ----
 
 async function viewHome() {
-  const [shuls, minyanim] = await Promise.all([Data.getAllShuls(), Data.getAllMinyanim()]);
+  const [allShuls, minyanim] = await Promise.all([Data.getAllShuls(), Data.getAllMinyanim()]);
   minyanim.forEach(m => { minyanCache[m.id] = m; });
-  shuls.forEach(s => { shulCache[s.id] = s; });
-  const shulMap = Object.fromEntries(shuls.map(s => [s.id, s]));
+  allShuls.forEach(s => { shulCache[s.id] = s; });
+  const shulMap = Object.fromEntries(allShuls.map(s => [s.id, s]));
 
-  const todays = minyanim.filter(Data.isMinyanActiveToday);
+  // Shuls the owner has hidden from the homepage are only reachable via
+  // their direct public link (#/s/{id}) — everything below excludes them.
+  const shuls = allShuls.filter(s => !s.unlisted);
+  const visibleShulIds = new Set(shuls.map(s => s.id));
+
+  const todays = minyanim.filter(m => visibleShulIds.has(m.shulId) && Data.isMinyanActiveToday(m));
   const todaysCards = await Promise.all(todays.map(m => renderMinyanCard(m, shulMap[m.shulId])));
 
   const byShul = {};
@@ -357,7 +362,11 @@ function shulModal(existing) {
             <div class="checkbox mb-1">
               <label><input type="checkbox" name="requireLogin" ${!existing || existing.requireLogin !== false ? "checked" : ""}> Require an account to RSVP</label>
             </div>
-            <div class="form-text">If unchecked, visitors can RSVP with just their name — no sign up needed.</div>
+            <div class="form-text mb-3">If unchecked, visitors can RSVP with just their name — no sign up needed.</div>
+            <div class="checkbox mb-1">
+              <label><input type="checkbox" name="unlisted" ${existing && existing.unlisted ? "checked" : ""}> Hide this shul from the site's homepage</label>
+            </div>
+            <div class="form-text">It'll only be reachable via its public link (Copy Public Link on the shul page) — not listed for everyone browsing the homepage.</div>
           </div>
           <div class="modal-footer">
             <button type="submit" class="btn btn-primary">${existing ? "Save Changes" : "Create Shul"}</button>
@@ -396,7 +405,7 @@ async function viewShul(shulId) {
     <p class="mb-2"><a href="#/dashboard" class="text-decoration-none"><i class="bi bi-arrow-left me-1"></i>My Shuls</a></p>
     <div class="d-flex justify-content-between align-items-start mb-2 flex-wrap gap-2">
       <div>
-        <h4 class="mb-0">${escapeHtml(shul.name)}</h4>
+        <h4 class="mb-0">${escapeHtml(shul.name)}${shul.unlisted ? ' <span class="badge bg-primary-subtle text-primary">Hidden from homepage</span>' : ""}</h4>
         <div class="text-muted small">${escapeHtml(shul.address || "")}</div>
       </div>
       <div class="d-flex gap-2 flex-wrap">
@@ -733,7 +742,8 @@ function wireShulForm() {
     const payload = {
       name: fd.get("name"),
       address: fd.get("address"),
-      requireLogin: fd.get("requireLogin") === "on"
+      requireLogin: fd.get("requireLogin") === "on",
+      unlisted: fd.get("unlisted") === "on"
     };
     if (id) {
       await Data.updateShul(id, payload);

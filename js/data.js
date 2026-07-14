@@ -55,9 +55,9 @@ export function scheduleDescription(minyan) {
 
 // ---- Shuls ----
 
-export async function createShul({ name, address, ownerId, ownerName, requireLogin = true }) {
+export async function createShul({ name, address, ownerId, ownerName, requireLogin = true, unlisted = false }) {
   const ref = await addDoc(collection(db, "shuls"), {
-    name, address: address || "", ownerId, ownerName, requireLogin, managers: [], createdAt: serverTimestamp()
+    name, address: address || "", ownerId, ownerName, requireLogin, unlisted, managers: [], createdAt: serverTimestamp()
   });
   return ref.id;
 }
