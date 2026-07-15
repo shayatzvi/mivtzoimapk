@@ -25,10 +25,27 @@ export function getOccurrenceDate(resetTime, now = new Date()) {
 }
 
 export function isMinyanActiveToday(minyan) {
+  // Schedule "today" always uses the reset-time cutover (even when the count
+  // itself never resets) so a late-night minyan still reads as "today" until
+  // the shul's chosen cutover passes.
   const occDate = getOccurrenceDate(minyan.resetTime);
   const dow = new Date(occDate + "T12:00:00").getDay();
   if (minyan.type === "one-time") return minyan.date === occDate;
   return (minyan.daysOfWeek || []).includes(dow);
+}
+
+// The bucket RSVPs are actually stored/read under.
+//  - Reset turned off: everyone's RSVP accumulates under one constant bucket
+//    forever instead of clearing each day.
+//  - One-time minyan: always its own fixed date, regardless of when someone
+//    RSVPs — otherwise pre-registering ahead of the event would file them
+//    under "today" (the day they signed up) instead of the event's date, and
+//    they'd silently vanish from the list by the time the event arrives.
+//  - Recurring minyan: today's date (via the reset-time cutover above).
+export function getRsvpBucketKey(minyan, now = new Date()) {
+  if (minyan.resetEnabled === false) return "all";
+  if (minyan.type === "one-time") return minyan.date || "unscheduled";
+  return getOccurrenceDate(minyan.resetTime, now);
 }
 
 export function formatTime12(hhmm) {
@@ -194,7 +211,7 @@ export async function getRSVPsForOccurrence(minyanId, occurrenceDate) {
     where("occurrenceDate", "==", occurrenceDate)
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => d.data());
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 // alreadyRsvpd is passed in by the caller (it already knows, from the RSVP
@@ -203,8 +220,8 @@ export async function getRSVPsForOccurrence(minyanId, occurrenceDate) {
 // the security rules, and our privacy-aware read rule can't safely dereference
 // that, so an existence-check read would be denied on every first-time RSVP.
 export async function toggleRSVP(minyan, identity, alreadyRsvpd) {
-  const occDate = getOccurrenceDate(minyan.resetTime);
-  const id = `${minyan.id}_${occDate}_${identityKey(identity)}`;
+  const bucket = getRsvpBucketKey(minyan);
+  const id = `${minyan.id}_${bucket}_${identityKey(identity)}`;
   const ref = doc(db, "rsvps", id);
   if (alreadyRsvpd) {
     await deleteDoc(ref);
@@ -216,8 +233,34 @@ export async function toggleRSVP(minyan, identity, alreadyRsvpd) {
     uid: identity.uid || null,
     guestId: identity.uid ? null : identity.guestId,
     userName: identity.userName,
-    occurrenceDate: occDate,
+    occurrenceDate: bucket,
     createdAt: serverTimestamp()
   });
   return true;
+}
+
+// ---- Attendee management (owner/manager can view, add, rename, remove) ----
+
+export async function addAttendee(minyan, userName) {
+  const bucket = getRsvpBucketKey(minyan);
+  const guestId = "admin_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const id = `${minyan.id}_${bucket}_guest_${guestId}`;
+  await setDoc(doc(db, "rsvps", id), {
+    minyanId: minyan.id,
+    shulId: minyan.shulId,
+    uid: null,
+    guestId,
+    userName,
+    occurrenceDate: bucket,
+    addedByAdmin: true,
+    createdAt: serverTimestamp()
+  });
+}
+
+export async function renameAttendee(rsvpId, userName) {
+  await updateDoc(doc(db, "rsvps", rsvpId), { userName });
+}
+
+export async function removeAttendee(rsvpId) {
+  await deleteDoc(doc(db, "rsvps", rsvpId));
 }

@@ -60,14 +60,21 @@ service cloud.firestore {
       // allow guest RSVPs accept anonymous writes with uid == null instead;
       // there's no server-verifiable owner for those, so anyone can remove a
       // guest RSVP (acceptable for a simple headcount, not sensitive data).
+      // A shul's owner/managers can also add an attendee on someone else's
+      // behalf (recorded as a guest-shaped entry regardless of their own auth).
       allow create: if
         (request.auth != null && request.resource.data.uid == request.auth.uid && request.resource.data.guestId == null) ||
-        (request.auth == null && request.resource.data.uid == null && request.resource.data.guestId is string);
+        (request.auth == null && request.resource.data.uid == null && request.resource.data.guestId is string) ||
+        isShulManager(request.resource.data.shulId);
       allow delete: if
         (request.auth != null && resource.data.uid == request.auth.uid) ||
         (request.auth == null && resource.data.uid == null) ||
         isShulManager(resource.data.shulId);
-      allow update: if false;
+      // Owner/managers can rename an attendee (fix a typo, etc.) — nothing
+      // else about the RSVP record may change.
+      allow update: if
+        isShulManager(resource.data.shulId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['userName']);
     }
   }
 }
