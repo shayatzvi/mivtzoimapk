@@ -10,6 +10,27 @@ body {
   min-height: 60vh;
 }
 
+/* ---- Flex-grow inputs: browsers give flex items an implicit min-width:auto,
+   which lets a text input's intrinsic content size win over flex-grow and
+   collapse it to near-nothing next to a sibling button. Affects every
+   "input + button" inline form in the app (guest RSVP, add manager, add
+   attendee), so fixed once for the shared .flex-1 utility rather than per use. ---- */
+
+.flex-1 {
+  min-width: 0;
+}
+
+/* USWDS buttons default to width:100% (meant for standalone/full-width use).
+   As a flex sibling next to a flex-1 input, that 100% becomes its flex-basis
+   and it swallows almost the entire row, squeezing the input to near-nothing.
+   These three are the app's "inline input + submit button" rows. */
+.guest-rsvp-form > button,
+#addManagerForm > button,
+#addAttendeeForm > button {
+  flex: 0 0 auto;
+  width: auto;
+}
+
 /* ---- Header ---- */
 
 .site-header .usa-logo {
@@ -23,6 +44,18 @@ body {
 @media (max-width: 480px) {
   .site-header-user {
     display: none;
+  }
+}
+
+/* Below tablet width, let the primary nav wrap onto its own full-width row
+   under the logo instead of squeezing into a narrow leftover column. */
+@media (max-width: 39.9em) {
+  .site-header .grid-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .site-header nav {
+    justify-content: center;
   }
 }
 
@@ -57,8 +90,69 @@ body {
   display: none;
 }
 
-/* ---- Attendee table inline edit ---- */
+/* USWDS centers the modal box with an inline-block + vertical-align:middle
+   trick against a full-height ::before spacer inside a scrollable overlay.
+   It's unreliable — in testing, scrolled to a slightly wrong offset and
+   pushed the modal below the fold on mobile. Flexbox centering is reliable
+   regardless of scroll position or viewport size. */
+.usa-modal-overlay {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+.usa-modal-overlay::before {
+  content: none !important;
+}
+.usa-modal {
+  margin: 1.25rem auto !important;
+  flex-shrink: 0;
+  /* Cap the modal's own height and let it scroll internally, rather than
+     relying on the overlay to scroll — a flex item taller than a centered
+     flex container can have its overflow clipped equally on both ends,
+     making the top of a long form unreachable even while "scrollable". */
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* ---- Attendee list inline edit ---- */
 
 .attendee-name-input {
   max-width: 16rem;
+}
+
+/* ---- Stacked list: replaces plain <table> markup for the app's various
+   "row of info + row of action buttons" listings (minyanim, managers,
+   attendees, schedules). A real <table> forces its columns to stay side by
+   side, so a row with several action buttons either overflows the viewport
+   or squeezes its text column to one word per line on narrow screens. This
+   wraps naturally instead. ---- */
+
+.stacked-list-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #dfe1e2;
+}
+.stacked-list-row:last-child {
+  border-bottom: none;
+}
+
+.stacked-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Full-width, stacked action buttons once a row is too narrow to keep them
+   inline next to the info column. */
+@media (max-width: 29.9em) {
+  .stacked-list-actions {
+    width: 100%;
+  }
+  .stacked-list-actions .usa-button {
+    flex: 1 1 auto;
+  }
 }

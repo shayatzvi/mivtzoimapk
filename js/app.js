@@ -285,19 +285,17 @@ async function viewHome() {
   const allHtml = shuls.length ? shuls.map(s => `
     <div class="margin-bottom-4">
       <h3 class="font-sans-md margin-bottom-1">${escapeHtml(s.name)}${s.address ? ` <span class="text-base-dark font-sans-3xs">— ${escapeHtml(s.address)}</span>` : ""}</h3>
-      <table class="usa-table usa-table--borderless width-full">
-        <tbody>
-          ${(byShul[s.id] || []).map(m => `
-            <tr>
-              <td>
-                <strong>${escapeHtml(m.name)}</strong>
-                <div class="text-base-dark font-sans-3xs">${Data.scheduleDescription(m)}${m.place ? " · " + escapeHtml(m.place) : ""}</div>
-              </td>
-              <td class="text-right">${Data.isMinyanActiveToday(m) ? '<span class="usa-tag bg-success">Today</span>' : ""}</td>
-            </tr>
-          `).join("") || '<tr><td class="text-base-dark">No minyanim yet.</td></tr>'}
-        </tbody>
-      </table>
+      <div class="stacked-list">
+        ${(byShul[s.id] || []).map(m => `
+          <div class="stacked-list-row">
+            <div>
+              <strong>${escapeHtml(m.name)}</strong>
+              <div class="text-base-dark font-sans-3xs">${Data.scheduleDescription(m)}${m.place ? " · " + escapeHtml(m.place) : ""}</div>
+            </div>
+            ${Data.isMinyanActiveToday(m) ? '<span class="usa-tag bg-success">Today</span>' : ""}
+          </div>
+        `).join("") || '<p class="text-base-dark">No minyanim yet.</p>'}
+      </div>
     </div>
   `).join("") : `<p class="text-base-dark">No shuls yet. <a href="#/login">Sign up</a> to add yours!</p>`;
 
@@ -378,18 +376,16 @@ async function viewPublicShul(shulId) {
 
   const othersHtml = others.length ? `
     <h2 class="font-sans-lg margin-top-4">Full Schedule</h2>
-    <table class="usa-table usa-table--borderless width-full margin-bottom-4">
-      <tbody>
-        ${others.map(m => `
-          <tr>
-            <td>
-              <strong>${escapeHtml(m.name)}</strong>
-              <div class="text-base-dark font-sans-3xs">${Data.scheduleDescription(m)}${m.place ? " · " + escapeHtml(m.place) : ""}</div>
-            </td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>` : "";
+    <div class="stacked-list margin-bottom-4">
+      ${others.map(m => `
+        <div class="stacked-list-row">
+          <div>
+            <strong>${escapeHtml(m.name)}</strong>
+            <div class="text-base-dark font-sans-3xs">${Data.scheduleDescription(m)}${m.place ? " · " + escapeHtml(m.place) : ""}</div>
+          </div>
+        </div>
+      `).join("")}
+    </div>` : "";
 
   return `
   <div class="grid-container padding-y-4">
@@ -504,31 +500,29 @@ async function viewShul(shulId) {
       <div class="usa-alert__body"><p class="usa-alert__text">Link copied to clipboard!</p></div>
     </div>
 
-    <table class="usa-table usa-table--borderless width-full margin-bottom-4">
-      <tbody>
-        ${minyanim.length ? minyanim.map(m => {
-          const isToday = Data.isMinyanActiveToday(m);
-          const rsvps = liveRsvps[m.id] || [];
-          return `
-          <tr>
-            <td>
-              <strong>${escapeHtml(m.name)}</strong>${isToday ? ' <span class="usa-tag bg-success">Today</span>' : ""}
-              <div class="text-base-dark font-sans-3xs">${Data.scheduleDescription(m)}${m.place ? " · " + escapeHtml(m.place) : ""}</div>
-              <div class="text-base-dark font-sans-3xs">
-                ${m.resetEnabled === false ? "Doesn't reset (running count)" : "Resets daily at " + Data.formatTime12(m.resetTime || "00:00")}
-                · ${m.showCount ? "Count shown publicly" : "Count hidden publicly"} · ${m.showNames ? "Names shown publicly" : "Names hidden publicly"}
-              </div>
-              <div class="margin-top-1"><span class="usa-tag bg-primary">${rsvps.length} coming</span></div>
-            </td>
-            <td class="text-right" style="white-space:nowrap">
-              <button class="usa-button usa-button--outline view-attendees-btn" data-id="${m.id}">Attendees</button>
-              <button class="usa-button usa-button--outline edit-minyan-btn" data-id="${m.id}">Edit</button>
-              <button class="usa-button usa-button--secondary delete-minyan-btn" data-id="${m.id}">Delete</button>
-            </td>
-          </tr>
-        `; }).join("") : `<tr><td class="text-base-dark">No minyanim yet. Add one!</td></tr>`}
-      </tbody>
-    </table>
+    <div class="stacked-list margin-bottom-4">
+      ${minyanim.length ? minyanim.map(m => {
+        const isToday = Data.isMinyanActiveToday(m);
+        const rsvps = liveRsvps[m.id] || [];
+        return `
+        <div class="stacked-list-row">
+          <div>
+            <strong>${escapeHtml(m.name)}</strong>${isToday ? ' <span class="usa-tag bg-success">Today</span>' : ""}
+            <div class="text-base-dark font-sans-3xs">${Data.scheduleDescription(m)}${m.place ? " · " + escapeHtml(m.place) : ""}</div>
+            <div class="text-base-dark font-sans-3xs">
+              ${m.resetEnabled === false ? "Doesn't reset (running count)" : "Resets daily at " + Data.formatTime12(m.resetTime || "00:00")}
+              · ${m.showCount ? "Count shown publicly" : "Count hidden publicly"} · ${m.showNames ? "Names shown publicly" : "Names hidden publicly"}
+            </div>
+            <div class="margin-top-1"><span class="usa-tag bg-primary">${rsvps.length} coming</span></div>
+          </div>
+          <div class="stacked-list-actions">
+            <button class="usa-button usa-button--outline view-attendees-btn" data-id="${m.id}">Attendees</button>
+            <button class="usa-button usa-button--outline edit-minyan-btn" data-id="${m.id}">Edit</button>
+            <button class="usa-button usa-button--secondary delete-minyan-btn" data-id="${m.id}">Delete</button>
+          </div>
+        </div>
+      `; }).join("") : `<p class="text-base-dark">No minyanim yet. Add one!</p>`}
+    </div>
 
     <div id="minyanModalContainer"></div>
     <div id="notifyPrefsModalContainer"></div>
@@ -611,19 +605,17 @@ function minyanModalBody(shul, editing) {
 
 function managerListHtml(managerUsers) {
   return managerUsers.length ? `
-    <table class="usa-table usa-table--borderless width-full">
-      <tbody>
-        ${managerUsers.map(u => `
-          <tr>
-            <td>
-              <strong>${escapeHtml(u.name || u.email)}</strong>
-              <div class="text-base-dark font-sans-3xs">${escapeHtml(u.email)}</div>
-            </td>
-            <td class="text-right"><button type="button" class="usa-button usa-button--secondary remove-manager-btn" data-uid="${u.uid}">Remove</button></td>
-          </tr>
-        `).join("")}
-      </tbody>
-    </table>` : '<p class="text-base-dark">No one else has access yet.</p>';
+    <div class="stacked-list">
+      ${managerUsers.map(u => `
+        <div class="stacked-list-row">
+          <div>
+            <strong>${escapeHtml(u.name || u.email)}</strong>
+            <div class="text-base-dark font-sans-3xs">${escapeHtml(u.email)}</div>
+          </div>
+          <button type="button" class="usa-button usa-button--secondary remove-manager-btn" data-uid="${u.uid}">Remove</button>
+        </div>
+      `).join("")}
+    </div>` : '<p class="text-base-dark">No one else has access yet.</p>';
 }
 
 function accessModalBody() {
@@ -673,35 +665,24 @@ function attendeesModalBody() {
     </div>
     <button type="submit" class="usa-button">Add</button>
   </form>
-  <table class="usa-table usa-table--borderless width-full">
-    <thead>
-      <tr>
-        <th scope="col">Name</th>
-        <th scope="col">Source</th>
-        <th scope="col">RSVP'd</th>
-        <th scope="col"></th>
-      </tr>
-    </thead>
-    <tbody id="attendeeTableBody"></tbody>
-  </table>`;
+  <div class="stacked-list" id="attendeeTableBody"></div>`;
 }
 
 function attendeeRowHtml(r) {
   const source = r.uid ? "Account" : (r.addedByAdmin ? "Added by admin" : "Guest");
   return `
-  <tr data-rsvp-id="${r.id}">
-    <td>
+  <div class="stacked-list-row" data-rsvp-id="${r.id}">
+    <div>
       <span class="attendee-name-display">${escapeHtml(r.userName)}</span>
       <input class="usa-input attendee-name-input display-none margin-0" type="text" value="${escapeHtml(r.userName)}">
-    </td>
-    <td>${source}</td>
-    <td>${formatDateTime(r.createdAt)}</td>
-    <td class="text-right" style="white-space:nowrap">
+      <div class="text-base-dark font-sans-3xs">${source} · ${formatDateTime(r.createdAt)}</div>
+    </div>
+    <div class="stacked-list-actions">
       <button type="button" class="usa-button usa-button--unstyled edit-attendee-btn">Edit</button>
       <button type="button" class="usa-button usa-button--unstyled save-attendee-btn display-none">Save</button>
       <button type="button" class="usa-button usa-button--unstyled text-secondary remove-attendee-btn">Remove</button>
-    </td>
-  </tr>`;
+    </div>
+  </div>`;
 }
 
 // ---- Event wiring ----
@@ -1063,9 +1044,9 @@ async function refreshAttendeesTable(minyan) {
   if (!body) return;
   body.innerHTML = rsvps.length
     ? rsvps.map(attendeeRowHtml).join("")
-    : `<tr><td colspan="4" class="text-base-dark">No one yet.</td></tr>`;
+    : `<p class="text-base-dark">No one yet.</p>`;
 
-  body.querySelectorAll("tr[data-rsvp-id]").forEach(row => {
+  body.querySelectorAll("[data-rsvp-id]").forEach(row => {
     const rsvpId = row.dataset.rsvpId;
     const nameDisplay = row.querySelector(".attendee-name-display");
     const nameInput = row.querySelector(".attendee-name-input");
